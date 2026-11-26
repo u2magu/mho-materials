@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MHO 素材メモ - モンハンアウトランダーズ</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         select {
@@ -42,21 +44,28 @@
         .theme-mint option { background-color: #ffffff; color: #134e4a; }
 
         .row-done { opacity: .45; text-decoration: line-through; }
+
+        /* スマホ向け調整：入力時に拡大されないよう16px、タップ領域を確保 */
+        @media (max-width: 640px) {
+            select, input.field-input, .field-input, #qty-input { font-size: 16px; }
+            button { touch-action: manipulation; }
+        }
+        #qrcode img, #qrcode canvas, #qrcode svg { display: block; margin: 0 auto; }
     </style>
 </head>
 <body id="app-body" class="theme-dark min-h-screen pb-12 font-sans transition-colors duration-300">
 
     <header class="card border-b sticky top-0 z-50 shadow-md">
-        <div class="max-w-5xl mx-auto px-4 py-2.5 flex justify-between items-center gap-3">
-            <h1 class="text-lg md:text-xl font-bold text-cyan-400 flex items-center gap-2">
+        <div class="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 flex flex-wrap justify-between items-center gap-2">
+            <h1 class="text-base sm:text-lg md:text-xl font-bold text-cyan-400 flex items-center gap-2">
                 <i class="fa-solid fa-clipboard-list"></i> MHO 素材メモ
             </h1>
             <div class="flex items-center gap-2 text-sm">
-                <button id="manage-btn" class="text-xs bg-cyan-700/40 hover:bg-cyan-600/60 border border-cyan-500/40 px-2.5 py-1.5 rounded transition flex items-center gap-1.5">
+                <button id="manage-btn" class="text-xs bg-cyan-700/40 hover:bg-cyan-600/60 border border-cyan-500/40 px-2.5 py-2 rounded transition flex items-center gap-1.5">
                     <i class="fa-solid fa-sliders"></i> <span class="hidden sm:inline">素材管理</span>
                 </button>
-                <button id="settings-btn" onclick="openSettingsModal()" title="バックアップ・設定" class="text-xs bg-slate-700/40 hover:bg-slate-600/60 border border-slate-500/40 px-2.5 py-1.5 rounded transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-gear"></i>
+                <button id="settings-btn" onclick="openSettingsModal()" title="バックアップ・設定・QR" class="text-xs bg-slate-700/40 hover:bg-slate-600/60 border border-slate-500/40 px-2.5 py-2 rounded transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-gear"></i> <span class="hidden sm:inline">設定</span>
                 </button>
                 <div class="flex items-center gap-1.5">
                     <i class="fa-solid fa-palette text-amber-400"></i>
@@ -70,28 +79,7 @@
         </div>
     </header>
 
-    <main class="max-w-5xl mx-auto px-4 mt-4">
-
-        <!-- サマリー -->
-        <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-            <div class="bg-black/20 p-2.5 rounded-lg border border-white/10">
-                <div class="text-[11px] opacity-70 mb-0.5">メモ件数</div>
-                <div id="stat-rows" class="text-2xl font-extrabold text-cyan-400">0</div>
-            </div>
-            <div class="bg-black/20 p-2.5 rounded-lg border border-white/10">
-                <div class="text-[11px] opacity-70 mb-0.5">合計個数</div>
-                <div id="stat-qty" class="text-2xl font-extrabold text-emerald-400">0</div>
-            </div>
-            <div class="bg-black/20 p-2.5 rounded-lg border border-white/10">
-                <div class="text-[11px] opacity-70 mb-0.5">素材の種類</div>
-                <div id="stat-kinds" class="text-2xl font-extrabold text-amber-400">0</div>
-            </div>
-            <div class="bg-black/20 p-2.5 rounded-lg border border-white/10 flex items-center justify-center">
-                <button id="reset-all-btn" class="w-full h-full min-h-[42px] bg-red-600/20 hover:bg-red-600/40 text-red-400 font-semibold py-2 px-3 rounded-lg border border-red-500/30 transition flex items-center justify-center gap-2 text-xs md:text-sm">
-                    <i class="fa-solid fa-trash-can"></i> 全リセット
-                </button>
-            </div>
-        </section>
+    <main class="max-w-5xl mx-auto px-3 sm:px-4 mt-4">
 
         <!-- 入力 -->
         <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5">
@@ -134,11 +122,16 @@
 
         <!-- メモ一覧 -->
         <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5">
-            <div class="text-xs opacity-70 mb-2 flex items-center justify-between">
-                <span><i class="fa-solid fa-list-check text-emerald-400"></i> メモ一覧</span>
-                <span class="text-[10px] opacity-60">数量は直接編集できます / ☑ で確保済み</span>
+            <div class="mb-2">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs opacity-70"><i class="fa-solid fa-list-check text-emerald-400"></i> メモ一覧</span>
+                    <button id="reset-all-btn" class="text-[11px] bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can"></i> 全リセット
+                    </button>
+                </div>
+                <div class="text-[10px] opacity-60 mt-1">数量は直接編集できます / ☑ で確保済み</div>
             </div>
-            <div id="memo-list" class="space-y-1.5"></div>
+            <div id="memo-list" class="space-y-2"></div>
             <div id="memo-empty" class="text-center text-xs opacity-50 py-8">まだメモがありません。上のプルダウンから追加してください。</div>
         </section>
 
@@ -196,6 +189,25 @@
                     <button onclick="importData()" class="flex-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 py-2 rounded text-xs transition flex items-center justify-center gap-1.5">
                         <i class="fa-solid fa-upload"></i> インポート
                     </button>
+                </div>
+
+                <div class="border-t border-white/10 pt-4">
+                    <div class="text-xs opacity-70 mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-qrcode text-cyan-400"></i> スマホに送る（QRコード）
+                    </div>
+                    <p class="text-[10px] opacity-60 leading-relaxed mb-2">スマホのカメラで読み取って開けます。「今のメモを送る」は、この端末のメモとカスタム素材をそのままスマホ側に引き継ぎます。</p>
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="showQrUrl()" class="flex-1 bg-cyan-700/40 hover:bg-cyan-600/60 border border-cyan-500/40 py-2 rounded text-xs transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-link"></i> このページのURL
+                        </button>
+                        <button onclick="showQrData()" class="flex-1 bg-violet-600/20 hover:bg-violet-600/40 text-violet-200 border border-violet-500/30 py-2 rounded text-xs transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-mobile-screen-button"></i> 今のメモを送る
+                        </button>
+                    </div>
+                    <div id="qr-area" class="hidden text-center">
+                        <div id="qrcode" class="inline-block bg-white p-3 rounded-lg"></div>
+                        <p id="qr-note" class="text-[10px] opacity-60 mt-2 leading-relaxed"></p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -431,11 +443,13 @@
         loadCustomData();
         restoreTheme();
         buildTierCheckboxes();
+        const imported = loadFromHash();
+        if (!imported) loadMemo();
         buildMonsterSelect();
         renderTierCheckboxes();
-        loadMemo();
         bindEvents();
         render();
+        if (imported) showToast("QRコードから読み込みました");
     });
 
     // ---------- 便利 ----------
@@ -550,13 +564,6 @@
 
     // ---------- 描画 ----------
     function render() {
-        // サマリー
-        const totalQty = memo.reduce((s, m) => s + m.qty, 0);
-        const kinds = new Set(memo.map(m => m.material + "|" + m.rarity));
-        document.getElementById("stat-rows").textContent = memo.length;
-        document.getElementById("stat-qty").textContent = totalQty;
-        document.getElementById("stat-kinds").textContent = kinds.size;
-
         // 素材まとめ
         const agg = {};
         memo.forEach(m => {
@@ -582,18 +589,21 @@
         if (!memo.length) { ml.innerHTML = ""; empty.style.display = "block"; return; }
         empty.style.display = "none";
         ml.innerHTML = memo.map((m, i) => `
-            <div class="flex items-center gap-2 bg-black/20 border border-white/10 rounded-lg px-2.5 py-1.5 ${m.done ? "row-done" : ""}">
-                <input type="checkbox" ${m.done ? "checked" : ""} onchange="toggleDone(${i})" class="w-4 h-4 accent-emerald-500 cursor-pointer shrink-0">
-                <div class="flex-1 min-w-0">
-                    <div class="text-sm font-semibold truncate">${esc(m.material)}${m.rarity ? ` <span class="text-amber-400">${TIER_NUM[m.rarity]}</span>` : ""}</div>
-                    <div class="text-[10px] opacity-60 truncate">${esc(m.monster)}</div>
+            <div class="bg-black/20 border border-white/10 rounded-lg px-3 py-2 ${m.done ? "row-done" : ""}">
+                <div class="flex items-center gap-2.5">
+                    <input type="checkbox" ${m.done ? "checked" : ""} onchange="toggleDone(${i})" class="w-5 h-5 accent-emerald-500 cursor-pointer shrink-0">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-semibold truncate">${esc(m.material)}${m.rarity ? ` <span class="text-amber-400">${TIER_NUM[m.rarity]}</span>` : ""}</div>
+                        <div class="text-[10px] opacity-60 truncate">${esc(m.monster)}</div>
+                    </div>
+                    <button onclick="removeEntry(${i})" class="w-8 h-8 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 transition shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>
                 </div>
-                <div class="flex items-center gap-1 shrink-0">
-                    <button onclick="changeQty(${i}, ${m.qty - 1})" class="w-6 h-6 rounded bg-white/10 hover:bg-white/20 text-xs">−</button>
-                    <input type="number" min="1" value="${m.qty}" onchange="changeQty(${i}, this.value)" class="field-input w-14 rounded text-sm p-1 border text-center">
-                    <button onclick="changeQty(${i}, ${m.qty + 1})" class="w-6 h-6 rounded bg-white/10 hover:bg-white/20 text-xs">＋</button>
+                <div class="flex items-center justify-end gap-2 mt-2">
+                    <span class="text-[10px] opacity-60">必要数</span>
+                    <button onclick="changeQty(${i}, ${m.qty - 1})" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-sm">−</button>
+                    <input type="number" min="1" value="${m.qty}" onchange="changeQty(${i}, this.value)" class="field-input w-16 rounded-lg text-sm p-1.5 border text-center">
+                    <button onclick="changeQty(${i}, ${m.qty + 1})" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-sm">＋</button>
                 </div>
-                <button onclick="removeEntry(${i})" class="w-7 h-7 rounded bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 transition shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>
             </div>`).join("");
     }
 
@@ -678,6 +688,61 @@
             if (Array.isArray(p.customData)) { customData = p.customData; saveCustomData(); buildMonsterSelect(); }
             saveMemo(); render(); showToast("インポートしました");
         } catch (e) { showToast("JSON の形式が正しくありません"); }
+    }
+
+    // ---------- QRコード（スマホへ送る） ----------
+    function encodeHash(obj) {
+        const json = JSON.stringify(obj);
+        if (typeof LZString !== "undefined") return LZString.compressToEncodedURIComponent(json);
+        // フォールバック（非圧縮・UTF-8 の base64url）
+        return btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+    function decodeHash(str) {
+        if (typeof LZString !== "undefined") { const s = LZString.decompressFromEncodedURIComponent(str); if (s) return s; }
+        const b = str.replace(/-/g, "+").replace(/_/g, "/");
+        return decodeURIComponent(escape(atob(b)));
+    }
+
+    // 共有URLの #d=... を読み込む（QR/URL共有用）
+    function loadFromHash() {
+        const h = location.hash.slice(1);
+        if (!h.startsWith("d=")) return false;
+        try {
+            const p = JSON.parse(decodeHash(h.slice(2)));
+            if (Array.isArray(p.memo)) memo = p.memo;
+            if (Array.isArray(p.customData)) { customData = p.customData; saveCustomData(); }
+            saveMemo();
+            history.replaceState(null, "", location.pathname + location.search);
+            return true;
+        } catch (e) { return false; }
+    }
+
+    function renderQr(text, note) {
+        const area = document.getElementById("qr-area");
+        const box = document.getElementById("qrcode");
+        area.classList.remove("hidden");
+        box.innerHTML = "";
+        if (typeof QRCode === "undefined") {
+            document.getElementById("qr-note").textContent = "QRコードライブラリの読み込みに失敗しました。通信環境を確認してください。";
+            return;
+        }
+        new QRCode(box, { text, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L });
+        document.getElementById("qr-note").innerHTML = note;
+    }
+
+    function showQrUrl() {
+        const url = location.origin + location.pathname;
+        renderQr(url, `このURLをスマホのカメラで読み取り → ツールを開けます<br><span class="break-all">${esc(url)}</span>`);
+    }
+
+    function showQrData() {
+        const part = "#d=" + encodeHash({ memo, customData });
+        const url = location.origin + location.pathname + part;
+        if (url.length > 2400) {
+            showToast("メモが多すぎてQRに収まりません。エクスポートを使ってください");
+            return;
+        }
+        renderQr(url, `読み取ると、今の<b>メモ ${memo.length} 件</b>とカスタム素材がスマホに読み込まれます`);
     }
 
     // ---------- イベント ----------
