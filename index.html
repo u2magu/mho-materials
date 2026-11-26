@@ -158,7 +158,7 @@
                     <datalist id="monster-datalist"></datalist>
                     <label class="text-xs opacity-70 block">素材名</label>
                     <input id="cm-material" type="text" class="field-input w-full rounded-lg text-sm p-2 border" placeholder="例: 火竜の翼">
-                    <label class="text-xs opacity-70 block">存在するレア度（複数選択可・無ければ「なし」）</label>
+                    <label class="text-xs opacity-70 block">存在するレア度（Ⅰ〜Ⅹ・複数選択可・無ければ「なし」）</label>
                     <div id="cm-tiers" class="flex flex-wrap gap-2 text-xs"></div>
                     <button onclick="addCustomMaterial()" class="w-full bg-cyan-700/40 hover:bg-cyan-600/60 border border-cyan-500/40 font-semibold py-2 rounded-lg transition text-sm flex items-center justify-center gap-2">
                         <i class="fa-solid fa-plus"></i> 追加
@@ -430,7 +430,7 @@
             ["アンドンウオ", ""], ["ヨゾラノウオ", ""], ["忍耐の種", ""] ] }
     ];
 
-    const TIER_NUM = { 1: "Ⅰ", 2: "Ⅱ", 3: "Ⅲ", 4: "Ⅳ", 5: "Ⅴ", 6: "Ⅵ" };
+    const TIER_NUM = { 1: "Ⅰ", 2: "Ⅱ", 3: "Ⅲ", 4: "Ⅳ", 5: "Ⅴ", 6: "Ⅵ", 7: "Ⅶ", 8: "Ⅷ", 9: "Ⅸ", 10: "Ⅹ" };
     const THEME_KEY = "mho_mat_theme";
     const MEMO_KEY  = "mho_mat_memo";
     const CUSTOM_KEY = "mho_mat_custom";
@@ -463,7 +463,16 @@
         setTimeout(() => t.classList.add("opacity-0"), 1800);
     }
     function allData() { return MATERIAL_DATA.concat(customData); }
-    function tierLabel(tiers) { return tiers ? tiers.split("").map(n => TIER_NUM[n]).join("・") : ""; }
+    // レア度は "123456" のような連結数字（1桁）または "1,10" のようなカンマ区切りに対応
+    function tiersToArray(tiers) {
+        if (!tiers) return [];
+        const s = String(tiers);
+        if (s.includes(",")) return s.split(",").map(Number).filter(n => n >= 1);
+        if (/^[1-9]+$/.test(s)) return s.split("").map(Number); // 旧形式（1桁ずつの連結）
+        const n = Number(s);
+        return n >= 1 ? [n] : [];
+    }
+    function tierLabel(tiers) { return tiersToArray(tiers).map(n => TIER_NUM[n]).join("・"); }
 
     // ---------- テーマ ----------
     function changeTheme(cls) {
@@ -514,7 +523,7 @@
             rarSel.disabled = true;
         } else {
             rarSel.disabled = false;
-            rarSel.innerHTML = tiers.split("").map(n => `<option value="${n}">${TIER_NUM[n]}</option>`).join("");
+            rarSel.innerHTML = tiersToArray(tiers).map(n => `<option value="${n}">${TIER_NUM[n]}</option>`).join("");
         }
     }
 
@@ -522,7 +531,7 @@
     function buildTierCheckboxes() {
         const wrap = document.getElementById("cm-tiers");
         let html = "";
-        for (let n = 1; n <= 6; n++) {
+        for (let n = 1; n <= 10; n++) {
             html += `<label class="flex items-center gap-1 bg-black/20 px-2 py-1 rounded border border-white/10 cursor-pointer">
                         <input type="checkbox" class="cm-tier" value="${n}"> ${TIER_NUM[n]}</label>`;
         }
@@ -635,7 +644,7 @@
         const monster = document.getElementById("cm-monster").value.trim();
         const material = document.getElementById("cm-material").value.trim();
         if (!monster || !material) { showToast("モンスター名と素材名を入力してください"); return; }
-        let tiers = [...document.querySelectorAll(".cm-tier:checked")].map(c => c.value).sort().join("");
+        let tiers = [...document.querySelectorAll(".cm-tier:checked")].map(c => Number(c.value)).sort((a, b) => a - b).join(",");
         if (document.getElementById("cm-none").checked) tiers = "";
         // 既存グループに追記 or 新規グループ
         let g = customData.find(x => x.monster === monster);
