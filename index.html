@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHO 素材メモ - モンハンアウトランダーズ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        select {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+        optgroup {
+            background-color: #1e293b;
+            color: #38bdf8;
+            font-weight: bold;
+            font-style: normal;
+        }
+        option {
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 4px;
+        }
+        body.theme-dark { background-color: #0f172a; color: #f8fafc; }
+        .theme-dark .card { background-color: #1e293b; border-color: #334155; }
+        .theme-dark select, .theme-dark .field-input { background-color: #0f172a; color: #f8fafc; border-color: #334155; }
+
+        body.theme-light { background-color: #f1f5f9; color: #0f172a; }
+        .theme-light .card { background-color: #ffffff; border-color: #e2e8f0; }
+        .theme-light select, .theme-light .field-input { background-color: #ffffff; color: #0f172a; border-color: #cbd5e1; }
+        .theme-light optgroup { background-color: #e2e8f0; color: #0284c7; }
+        .theme-light option { background-color: #ffffff; color: #0f172a; }
+
+        body.theme-mint { background-color: #e6f4f1; color: #134e4a; }
+        .theme-mint .card { background-color: #ffffff; border-color: #99f6e4; }
+        .theme-mint select, .theme-mint .field-input { background-color: #f0fdfa; color: #134e4a; border-color: #2dd4bf; }
+        .theme-mint optgroup { background-color: #ccfbf1; color: #0d9488; }
+        .theme-mint option { background-color: #ffffff; color: #134e4a; }
+
+        .row-done { opacity: .45; text-decoration: line-through; }
+    </style>
+</head>
+<body id="app-body" class="theme-dark min-h-screen pb-12 font-sans transition-colors duration-300">
+
+    <header class="card border-b sticky top-0 z-50 shadow-md">
+        <div class="max-w-5xl mx-auto px-4 py-2.5 flex justify-between items-center gap-3">
+            <h1 class="text-lg md:text-xl font-bold text-cyan-400 flex items-center gap-2">
+                <i class="fa-solid fa-clipboard-list"></i> MHO 素材メモ
+            </h1>
+            <div class="flex items-center gap-2 text-sm">
+                <button id="manage-btn" class="text-xs bg-cyan-700/40 hover:bg-cyan-600/60 border border-cyan-500/40 px-2.5 py-1.5 rounded transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders"></i> <span class="hidden sm:inline">素材管理</span>
+                </button>
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-palette text-amber-400"></i>
+                    <select id="theme-select" onchange="changeTheme(this.value)" class="text-xs p-1.5 rounded-lg border cursor-pointer">
+                        <option value="theme-dark">ダーク</option>
+                        <option value="theme-light">ライト</option>
+                        <option value="theme-mint">ミント</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 mt-4">
+
+        <!-- サマリー -->
+        <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div class="bg-black/20 p-2.5 rounded-lg border border-white/10">
+                <div class="text-[11px] opacity-70 mb-0.5">メモ件数</div>
+                <div id="stat-rows" class="text-2xl font-extrabold text-cyan-400">0</div>
+            </div>
+            <div class="bg-black/20 p-2.5 rounded-lg border border-white/10">
+                <div class="text-[11px] opacity-70 mb-0.5">合計個数</div>
+                <div id="stat-qty" class="text-2xl font-extrabold text-emerald-400">0</div>
+            </div>
+            <div class="bg-black/20 p-2.5 rounded-lg border border-white/10">
+                <div class="text-[11px] opacity-70 mb-0.5">素材の種類</div>
+                <div id="stat-kinds" class="text-2xl font-extrabold text-amber-400">0</div>
+            </div>
+            <div class="bg-black/20 p-2.5 rounded-lg border border-white/10 flex items-center justify-center">
+                <button id="reset-all-btn" class="w-full h-full min-h-[42px] bg-red-600/20 hover:bg-red-600/40 text-red-400 font-semibold py-2 px-3 rounded-lg border border-red-500/30 transition flex items-center justify-center gap-2 text-xs md:text-sm">
+                    <i class="fa-solid fa-trash-can"></i> 全リセット
+                </button>
+            </div>
+        </section>
+
+        <!-- 入力 -->
+        <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5">
+            <div class="text-xs opacity-70 mb-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-plus text-cyan-400"></i> 必要な素材を追加（モンスター → 素材 → レア度 → 必要数）
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                <div class="sm:col-span-4">
+                    <label class="text-[10px] opacity-70 block mb-0.5">モンスター</label>
+                    <select id="monster-select" onchange="onMonsterChange()" class="w-full rounded-lg text-sm p-2 border appearance-none cursor-pointer"></select>
+                </div>
+                <div class="sm:col-span-4">
+                    <label class="text-[10px] opacity-70 block mb-0.5">素材</label>
+                    <select id="material-select" onchange="onMaterialChange()" class="w-full rounded-lg text-sm p-2 border appearance-none cursor-pointer"></select>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="text-[10px] opacity-70 block mb-0.5">レア度</label>
+                    <select id="rarity-select" class="w-full rounded-lg text-sm p-2 border appearance-none cursor-pointer"></select>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="text-[10px] opacity-70 block mb-0.5">必要数</label>
+                    <input id="qty-input" type="number" min="1" value="1" class="field-input w-full rounded-lg text-sm p-2 border text-center">
+                </div>
+                <div class="sm:col-span-12">
+                    <button onclick="addEntry()" class="w-full bg-cyan-700/40 hover:bg-cyan-600/60 border border-cyan-500/40 font-semibold py-2.5 rounded-lg transition text-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus"></i> メモに追加
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- まとめ -->
+        <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5">
+            <div class="text-xs opacity-70 mb-2 flex items-center justify-between">
+                <span><i class="fa-solid fa-layer-group text-amber-400"></i> 素材まとめ（素材×レア度で合算）</span>
+                <span id="summary-hint" class="text-[10px] opacity-60"></span>
+            </div>
+            <div id="summary-list" class="flex flex-wrap gap-2"></div>
+        </section>
+
+        <!-- メモ一覧 -->
+        <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5">
+            <div class="text-xs opacity-70 mb-2 flex items-center justify-between">
+                <span><i class="fa-solid fa-list-check text-emerald-400"></i> メモ一覧</span>
+                <span class="text-[10px] opacity-60">数量は直接編集できます / ☑ で確保済み</span>
+            </div>
+            <div id="memo-list" class="space-y-1.5"></div>
+            <div id="memo-empty" class="text-center text-xs opacity-50 py-8">まだメモがありません。上のプルダウンから追加してください。</div>
+        </section>
+
+        <!-- バックアップ -->
+        <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5">
+            <div class="text-xs opacity-70 mb-2">バックアップ (JSON) — 別の端末への移行・共有に</div>
+            <textarea id="backup-json" class="field-input w-full rounded-lg text-xs p-2 border h-20 font-mono" placeholder="エクスポートで JSON 出力 / 貼り付けてインポート"></textarea>
+            <div class="flex gap-2 mt-2">
+                <button onclick="exportData()" class="flex-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 py-1.5 rounded text-xs transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-download"></i> エクスポート
+                </button>
+                <button onclick="importData()" class="flex-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 py-1.5 rounded text-xs transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-upload"></i> インポート
+                </button>
+            </div>
+        </section>
+
+        <p class="text-[10px] opacity-50 text-center leading-relaxed">
+            非公式ファンメイドツールです。素材データは MHO Hub (mhohub.com) の公開情報を基にした参考情報で、<br>
+            ゲームの最新版と一致しない場合があります。「素材管理」からいつでも追記できます。
+        </p>
+
+    </main>
+
+    <!-- 素材管理モーダル -->
+    <div id="manage-modal" class="hidden fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onclick="if(event.target===this)closeManageModal()">
+        <div class="card rounded-xl border shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-white/10">
+                <h2 class="font-bold text-cyan-400 flex items-center gap-2"><i class="fa-solid fa-sliders"></i> カスタム素材の追加・削除</h2>
+                <button onclick="closeManageModal()" class="w-8 h-8 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 space-y-4 overflow-y-auto">
+                <div class="bg-black/20 p-3 rounded-lg border border-white/10 space-y-2">
+                    <label class="text-xs opacity-70 block">モンスター名（既存から選ぶ or 新規入力）</label>
+                    <input id="cm-monster" list="monster-datalist" type="text" class="field-input w-full rounded-lg text-sm p-2 border" placeholder="例: リオレウス">
+                    <datalist id="monster-datalist"></datalist>
+                    <label class="text-xs opacity-70 block">素材名</label>
+                    <input id="cm-material" type="text" class="field-input w-full rounded-lg text-sm p-2 border" placeholder="例: 火竜の翼">
+                    <label class="text-xs opacity-70 block">存在するレア度（複数選択可・無ければ「なし」）</label>
+                    <div id="cm-tiers" class="flex flex-wrap gap-2 text-xs"></div>
+                    <button onclick="addCustomMaterial()" class="w-full bg-cyan-700/40 hover:bg-cyan-600/60 border border-cyan-500/40 font-semibold py-2 rounded-lg transition text-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus"></i> 追加
+                    </button>
+                </div>
+                <div>
+                    <div class="text-xs opacity-70 mb-2">追加済みカスタム素材（× で削除）</div>
+                    <div id="custom-list" class="space-y-2 text-xs"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-message" class="fixed bottom-5 right-5 bg-cyan-600 text-white px-4 py-2 rounded-lg shadow-xl text-xs font-semibold opacity-0 transition-opacity duration-300 pointer-events-none z-[70]"></div>
+
+    <script>
+    // ============================================================
+    // ▼ 素材データ
+    //    group       : プルダウンの見出し（optgroup）
+    //    monster     : モンスター名
+    //    mats        : [素材名, 存在するレア度] の配列
+    //                  レア度は "123456" のように 1〜6 を連結（"" = レア度なし）
+    //    出典: MHO Hub (mhohub.com) の素材図鑑 / 素材検索（2026-11 時点の公開情報）
+    //    ※ 非公式情報のため、実際のゲームと異なる場合があります。
+    //      画面右上の「素材管理」からカスタム素材を追記できます（localStorage 保存）。
+    // ============================================================
+    const MATERIAL_DATA = [
+        // ---------- 大型モンスター ----------
+        { group: "大型モンスター", monster: "アンジャナフ", mats: [
+            ["蛮顎竜の牙", "123456"], ["蛮顎竜の鼻甲", "1234"], ["蛮顎竜の鼻骨", "56"],
+            ["蛮顎竜の毛皮", "123456"], ["蛮顎竜の逆鱗", "123456"], ["蛮顎竜の鱗", "123456"] ] },
+        { group: "大型モンスター", monster: "ボルボロス", mats: [
+            ["土砂竜の甲殻", "123456"], ["土砂竜の尻尾", "123456"], ["土砂竜の爪", "123456"],
+            ["土砂竜の頭殻", "123456"], ["土砂竜の背甲", "123456"] ] },
+        { group: "大型モンスター", monster: "ディアブロス", mats: [
+            ["角竜の牙", "23456"], ["角竜の甲殻", "23456"], ["角竜の骨髄", "23456"],
+            ["角竜の背甲", "23456"], ["角竜の尾甲", "23456"] ] },
+        { group: "大型モンスター", monster: "ディアブロス亜種", mats: [
+            ["黒角竜の堅殻", "346"], ["黒角竜の堅甲", "346"] ] },
+        { group: "大型モンスター", monster: "ドスジャグラス", mats: [
+            ["賊竜のたてがみ", "123456"], ["賊竜の爪", "123456"], ["賊竜の皮", "123456"], ["賊竜の鱗", "123456"] ] },
+        { group: "大型モンスター", monster: "ジュラトドス", mats: [
+            ["泥魚竜のヒレ", "123456"], ["泥魚竜の牙", "123456"], ["泥魚竜の甲殻", "123456"], ["泥魚竜の鱗", "123456"] ] },
+        { group: "大型モンスター", monster: "ドスギルオス", mats: [
+            ["痺賊竜の牙", "123456"], ["痺賊竜の尻尾", "123456"], ["痺賊竜の頭巾殻", "123456"],
+            ["痺賊竜の皮", "123456"], ["痺賊竜の鱗", "123456"] ] },
+        { group: "大型モンスター", monster: "クルルヤック", mats: [
+            ["掻鳥のクチバシ", "123456"], ["掻鳥の飾り羽", "123456"], ["掻鳥の皮", "123456"], ["掻鳥の鱗", "123456"] ] },
+        { group: "大型モンスター", monster: "レイギエナ", mats: [
+            ["風漂竜の逆鱗", "23456"], ["風漂竜の爪", "23456"], ["風漂竜の皮", "23456"],
+            ["風漂竜の尾膜", "23456"], ["風漂竜の翼膜", "23456"], ["風漂竜の鱗", "23456"] ] },
+        { group: "大型モンスター", monster: "オドガロン", mats: [
+            ["惨爪竜の牙", "23456"], ["惨爪竜の逆鱗", "23456"], ["惨爪竜の硬筋", "23456"],
+            ["惨爪竜の尻尾", "23456"], ["惨爪竜の爪", "23456"], ["惨爪竜の鱗", "23456"] ] },
+        { group: "大型モンスター", monster: "パオウルムー", mats: [
+            ["浮空竜の毛皮", "23456"], ["浮空竜の翼膜", "23456"], ["浮空竜の鱗", "23456"] ] },
+        { group: "大型モンスター", monster: "リオレイア亜種", mats: [
+            ["桜火竜の堅殻", "3456"], ["桜火竜の上鱗", "3456"] ] },
+        { group: "大型モンスター", monster: "プケプケ", mats: [
+            ["毒妖鳥の羽根", "123456"], ["毒妖鳥の喉袋", "123456"], ["毒妖鳥の甲殻", "123456"],
+            ["毒妖鳥の尻尾", "123456"], ["毒妖鳥の鱗", "123456"] ] },
+        { group: "大型モンスター", monster: "ラドバルキン", mats: [
+            ["骨鎚竜の甲殻", "23456"], ["骨鎚竜の黒油殻", "23456"], ["骨鎚竜の骨髄", "23456"], ["骨鎚竜の鱗", "23456"] ] },
+        { group: "大型モンスター", monster: "リオレウス", mats: [
+            ["火竜の逆鱗", "123456"], ["火竜の甲殻", "123456"], ["火竜の骨髄", "3"], ["火竜の尻尾", "123456"],
+            ["火竜の翼爪", "1234"], ["火竜の翼膜", "123456"], ["火竜の鱗", "123456"] ] },
+        { group: "大型モンスター", monster: "リオレイア", mats: [
+            ["雌火竜の逆鱗", "123456"], ["雌火竜の甲殻", "123456"], ["雌火竜の翼膜", "123456"],
+            ["雌火竜の鱗", "123456"], ["雌火竜の棘", "123456"] ] },
+        { group: "大型モンスター", monster: "トビカガチ", mats: [
+            ["飛雷竜の爪", "123456"], ["飛雷竜の電極針", "123456"], ["飛雷竜の皮膜", "123456"],
+            ["飛雷竜の毛皮", "123456"], ["飛雷竜の鱗", "123456"] ] },
+        { group: "大型モンスター", monster: "ツィツィヤック", mats: [
+            ["眩鳥の爪", "23456"], ["眩鳥の発光膜", "23456"], ["眩鳥の皮", "23456"], ["眩鳥の鱗", "23456"] ] },
+        { group: "大型モンスター", monster: "ネルギガンテ", mats: [
+            ["滅尽龍の堅殻", "234"], ["滅尽龍の再生殻", "234"], ["滅尽龍の尻尾", "234"],
+            ["滅尽龍の尖爪", "234"], ["滅尽龍の大角", "234"], ["滅尽龍の宝玉", "23"] ] },
+        { group: "大型モンスター", monster: "クシャルダオラ", mats: [
+            ["鋼龍の堅殻", "456"], ["鋼龍の尻尾", "4"], ["鋼龍の尖角", "456"], ["鋼龍の尖爪", "456"],
+            ["鋼龍の翼", "456"], ["鋼の上龍鱗", "456"] ] },
+        { group: "大型モンスター", monster: "ルガ・エアルダ", mats: [
+            ["光稜龍の重光殻", ""], ["光稜龍の稜石鱗", ""], ["光稜龍の冠角", ""], ["光稜龍の冠棘", ""],
+            ["光稜龍の輝剛爪", ""], ["光稜龍の輝翼爪", ""], ["光稜龍の鋭尾棘", ""], ["光稜龍の剛晶玉", ""] ] },
+
+        // ---------- 融光種モンスター ----------
+        { group: "融光種モンスター", monster: "融光種アンジャナフ", mats: [
+            ["融光種蛮顎竜の牙", "123456"], ["融光種蛮顎竜の鼻甲", "1234"], ["融光種蛮顎竜の鼻骨", "56"],
+            ["融光種蛮顎竜の毛皮", "123456"], ["融光種蛮顎竜の逆鱗", "123456"], ["融光種蛮顎竜の鱗", "123456"] ] },
+        { group: "融光種モンスター", monster: "融光種ボルボロス", mats: [
+            ["融光種土砂竜の甲殻", "23456"], ["融光種土砂竜の尻尾", "23456"], ["融光種土砂竜の爪", "23456"],
+            ["融光種土砂竜の頭殻", "23456"], ["融光種土砂竜の背甲", "23456"] ] },
+        { group: "融光種モンスター", monster: "融光種ディアブロス", mats: [
+            ["融光種角竜の牙", "23456"], ["融光種角竜の甲殻", "23456"], ["融光種角竜の骨髄", "23456"],
+            ["融光種角竜の背甲", "23456"], ["融光種角竜の尾甲", "23456"] ] },
+        { group: "融光種モンスター", monster: "融光種ディアブロス亜種", mats: [
+            ["融光種黒角竜の堅殻", "46"], ["融光種黒角竜の堅甲", "46"] ] },
+        { group: "融光種モンスター", monster: "融光種ドスジャグラス", mats: [
+            ["融光種賊竜のたてがみ", "123456"], ["融光種賊竜の爪", "123456"], ["融光種賊竜の皮", "123456"], ["融光種賊竜の鱗", "123456"] ] },
+        { group: "融光種モンスター", monster: "融光種ジュラトドス", mats: [
+            ["融光種泥魚竜のヒレ", "123456"], ["融光種泥魚竜の牙", "123456"], ["融光種泥魚竜の甲殻", "123456"], ["融光種泥魚竜の鱗", "123456"] ] },
+        { group: "融光種モンスター", monster: "融光種ドスギルオス", mats: [
+            ["融光種痺賊竜の牙", "23456"], ["融光種痺賊竜の尻尾", "23456"], ["融光種痺賊竜の頭巾殻", "23456"],
+            ["融光種痺賊竜の皮", "23456"], ["融光種痺賊竜の鱗", "23456"] ] },
+        { group: "融光種モンスター", monster: "融光種クルルヤック", mats: [
+            ["融光種掻鳥のクチバシ", "123456"], ["融光種掻鳥の飾り羽", "123456"], ["融光種掻鳥の皮", "123456"], ["融光種掻鳥の鱗", "123456"] ] },
+        { group: "融光種モンスター", monster: "融光種レイギエナ", mats: [
+            ["融光種風漂竜の逆鱗", "3456"], ["融光種風漂竜の爪", "3456"], ["融光種風漂竜の皮", "3456"],
+            ["融光種風漂竜の尾膜", "3456"], ["融光種風漂竜の翼膜", "3456"], ["融光種風漂竜の鱗", "3456"] ] },
+        { group: "融光種モンスター", monster: "融光種オドガロン", mats: [
+            ["融光種惨爪竜の牙", "3456"], ["融光種惨爪竜の逆鱗", "3456"], ["融光種惨爪竜の硬筋", "3456"],
+            ["融光種惨爪竜の尻尾", "3456"], ["融光種惨爪竜の爪", "3456"], ["融光種惨爪竜の鱗", "3456"] ] },
+        { group: "融光種モンスター", monster: "融光種パオウルムー", mats: [
+            ["融光種浮空竜の毛皮", "3456"], ["融光種浮空竜の翼膜", "3456"], ["融光種浮空竜の鱗", "3456"] ] },
+        { group: "融光種モンスター", monster: "融光種リオレイア亜種", mats: [
+            ["融光種桜火竜の堅殻", "456"], ["融光種桜火竜の上鱗", "456"] ] },
+        { group: "融光種モンスター", monster: "融光種プケプケ", mats: [
+            ["融光種毒妖鳥の羽根", "123456"], ["融光種毒妖鳥の喉袋", "123456"], ["融光種毒妖鳥の甲殻", "123456"],
+            ["融光種毒妖鳥の尻尾", "123456"], ["融光種毒妖鳥の鱗", "123456"] ] },
+        { group: "融光種モンスター", monster: "融光種ラドバルキン", mats: [
+            ["融光種骨鎚竜の甲殻", "456"], ["融光種骨鎚竜の黒油殻", "456"], ["融光種骨鎚竜の骨髄", "456"], ["融光種骨鎚竜の鱗", "456"] ] },
+        { group: "融光種モンスター", monster: "融光種リオレウス", mats: [
+            ["融光種火竜の逆鱗", "23456"], ["融光種火竜の甲殻", "23456"], ["融光種火竜の尻尾", "23456"],
+            ["融光種火竜の翼爪", "1234"], ["融光種火竜の翼膜", "23456"], ["融光種火竜の鱗", "23456"] ] },
+        { group: "融光種モンスター", monster: "融光種リオレイア", mats: [
+            ["融光種雌火竜の逆鱗", "123456"], ["融光種雌火竜の甲殻", "123456"], ["融光種雌火竜の翼膜", "123456"],
+            ["融光種雌火竜の鱗", "123456"], ["融光種雌火竜の棘", "123456"] ] },
+        { group: "融光種モンスター", monster: "融光種トビカガチ", mats: [
+            ["融光種飛雷竜の爪", "23456"], ["融光種飛雷竜の電極針", "23456"], ["融光種飛雷竜の皮膜", "23456"],
+            ["融光種飛雷竜の毛皮", "23456"], ["融光種飛雷竜の鱗", "23456"] ] },
+        { group: "融光種モンスター", monster: "融光種ツィツィヤック", mats: [
+            ["融光種眩鳥の爪", "3456"], ["融光種眩鳥の発光膜", "3456"], ["融光種眩鳥の皮", "3456"], ["融光種眩鳥の鱗", "3456"] ] },
+
+        // ---------- 小型モンスター ----------
+        { group: "小型モンスター", monster: "ジャグラス", mats: [
+            ["ジャグラスの皮", ""], ["ジャグラスの鱗", ""] ] },
+        { group: "小型モンスター", monster: "ケストドン", mats: [
+            ["ケストドンの甲殻", ""], ["ケストドンの頭殻", ""] ] },
+        { group: "小型モンスター", monster: "カンタロス", mats: [
+            ["カンタロスの羽", ""], ["カンタロスの甲殻", ""], ["カンタロスの頭", ""] ] },
+        { group: "小型モンスター", monster: "ランゴスタ", mats: [
+            ["ランゴスタの羽", ""], ["ランゴスタの甲殻", ""] ] },
+        { group: "小型モンスター", monster: "ギルオス", mats: [
+            ["ギルオスの皮", ""], ["ギルオスの麻痺牙", ""], ["ギルオスの鱗", ""] ] },
+        { group: "小型モンスター", monster: "ガライーバ", mats: [
+            ["ガライーバのヒゲ", ""], ["ガライーバの皮", ""] ] },
+        { group: "小型モンスター", monster: "ガストドン", mats: [
+            ["ガストドンの堅殻", ""] ] },
+        { group: "小型モンスター", monster: "シャムオス", mats: [
+            ["シャムオスの皮", ""], ["シャムオスの鱗", ""] ] },
+        { group: "小型モンスター", monster: "メルノス", mats: [
+            ["翼竜の皮", "12"] ] },
+        { group: "小型モンスター", monster: "融光種ジャグラス", mats: [
+            ["融光種ジャグラスの皮", "123"], ["融光種ジャグラスの鱗", "123"] ] },
+        { group: "小型モンスター", monster: "融光種ケストドン", mats: [
+            ["融光種ケストドンの甲殻", "123"], ["融光種ケストドンの頭殻", "123"] ] },
+        { group: "小型モンスター", monster: "融光種ランゴスタ", mats: [
+            ["融光種ランゴスタの羽", "123"], ["融光種ランゴスタの甲殻", "123"] ] },
+        { group: "小型モンスター", monster: "融光種ガライーバ", mats: [
+            ["融光種咬魚のヒゲ", "123"], ["融光種咬魚の皮", "123"] ] },
+        { group: "小型モンスター", monster: "融光種ガストドン", mats: [
+            ["融光種ガストドンの堅殻", "123"] ] },
+        { group: "小型モンスター", monster: "融光種シャムオス", mats: [
+            ["融光種シャムオスの皮", "123"], ["融光種シャムオスの鱗", "123"] ] },
+        { group: "小型モンスター", monster: "融光種メルノス", mats: [
+            ["融光種翼竜の皮", "123"] ] },
+
+        // ---------- 汎用モンスター素材 ----------
+        { group: "汎用モンスター素材", monster: "共通（袋・体液など）", mats: [
+            ["モンスターの体液", ""], ["火炎袋", "1234"], ["水袋", "1234"], ["毒袋", "1234"],
+            ["睡眠袋", "234"], ["麻痺袋", "1234"], ["氷結袋", "234"], ["肥沃なドロ", "1234"],
+            ["古龍のエキス", "234"], ["不滅の龍鱗", "234"], ["ねじれた角", "23456"], ["ゴム質の甲殻", "23456"],
+            ["竜骨塊", "23456"], ["暖かい毛皮", ""], ["上質な黒巻き角", "346"], ["とがった爪", ""] ] },
+        { group: "汎用モンスター素材", monster: "融光種（袋・体液など）", mats: [
+            ["融光種モンスターの体液", "123"], ["融光種火炎袋", "1234"], ["融光種水袋", "1234"],
+            ["融光種毒袋", "1234"], ["融光種肥沃なドロ", "234"], ["融光種ねじれた角", "23456"],
+            ["融光種ゴム質の甲殻", "3456"], ["融光種の竜骨塊", "456"], ["融光種暖かい毛皮", "123"],
+            ["上質な融光種黒巻き角", "46"], ["融光種とがった爪", "123"] ] },
+
+        // ---------- 竜骨・骨素材 ----------
+        { group: "竜骨・骨素材", monster: "竜骨系", mats: [
+            ["竜骨【小】", ""], ["竜骨【中】", ""], ["竜骨【大】", ""], ["上竜骨", ""], ["尖竜骨", ""],
+            ["重竜骨", ""], ["強竜骨", ""], ["剛竜骨", ""], ["融光竜骨", ""], ["太古龍骨", ""], ["融光古龍骨", ""],
+            ["太古の大骨", ""], ["頑丈な骨", ""], ["上質な堅骨", ""], ["強固な岩骨", ""], ["荒々しい蛮骨", ""],
+            ["頑強な重骨", ""], ["焦げた狂骨", ""], ["凍てついた氷骨", ""] ] },
+
+        // ---------- 採取・鉱石・釣り・特産 ----------
+        { group: "採取・鉱石など", monster: "鉱石", mats: [
+            ["鉄鉱石", ""], ["マカライト鉱石", ""], ["ドラグライト鉱石", ""], ["カブレライト鉱石", ""],
+            ["ユニオン鉱石", ""], ["ライトクリスタル", ""], ["ノヴァクリスタル", ""], ["ノアストーン", ""],
+            ["大地の結晶", ""], ["深海の結晶", ""], ["幻晶の原石", ""], ["精晶の原石", ""], ["融石の結晶", ""],
+            ["融鉱石", ""], ["獄炎石", ""], ["黄昏の石", ""], ["石", ""], ["砂", ""], ["溶灰岩", ""] ] },
+        { group: "採取・鉱石など", monster: "植物・キノコ", mats: [
+            ["薬草", ""], ["げどく草", ""], ["アオキノコ", ""], ["ニトロダケ", ""], ["マヒダケ", ""],
+            ["ヒンヤリダケ", ""], ["毒テングダケ", ""], ["ネムリ草", ""], ["ハチミツ", ""], ["にが虫", ""],
+            ["不死虫", ""], ["雷光虫", ""], ["光蟲", ""], ["火薬草", ""], ["ツタの葉", ""], ["クモの巣", ""],
+            ["モンスターのフン", ""], ["ケムリの実", ""], ["ニジバショウ", ""], ["トウガラシ", ""],
+            ["ハードフルーツ", ""], ["ワイルドフルーツ", ""], ["ロックフルーツ", ""], ["ドラゴンフラワー", ""],
+            ["サニーフラワー", ""], ["シャインフラワー", ""], ["ゴールドフラワー", ""], ["百陽草", ""],
+            ["落陽草の花", ""], ["月夜タケ", ""], ["マンドラゴラ", ""], ["ドキドキノコ", ""],
+            ["トロピカパイン", ""], ["ヘブンベリー", ""], ["静塵の実", ""], ["稀少蜜の実", ""],
+            ["特産蜜の実", ""], ["彼岸の果実", ""], ["地下の果実", ""], ["瘴気の果実", ""],
+            ["島の稀少稲", ""], ["島の特産稲", ""], ["イノセントパール", ""],
+            ["ディープパール", ""], ["プラチナパール", ""], ["ライトパール", ""], ["サンゴの紅骨", ""],
+            ["陸珊瑚", ""], ["瑰麗ワカメ", ""], ["避光岩苔", ""], ["厳選スジタケ", ""], ["特産スジタケ", ""],
+            ["霊光スジタケ", ""], ["厳選ツボアワビ", ""], ["特産ツボアワビ", ""], ["藤色ツボアワビ", ""],
+            ["秘蔵ツボアワビ", ""], ["王様サボテン", ""], ["大玉サボテン", ""], ["小玉サボテン", ""] ] },
+        { group: "採取・鉱石など", monster: "木・その他", mats: [
+            ["木", ""], ["硬木", ""], ["鋼木", ""], ["鉄木", ""], ["融光木", ""], ["竜原木", ""],
+            ["竜棲木", ""], ["天光蘊融石", ""], ["天光のたてがみ", ""], ["大地のコハク", ""],
+            ["太古のコハク", ""], ["龍脈のコハク", ""], ["龍脈の結晶", ""], ["アビスマリン", ""],
+            ["トゥルーマリン", ""], ["ブルーマリン", ""], ["ホシノツユムシ", ""], ["ホッピングッピー", ""],
+            ["いにしえの化石", ""], ["なぞの化石", ""], ["まぼろしの化石", ""], ["神秘の化石", ""],
+            ["魔の化石", ""], ["小タル", ""], ["大タル", ""], ["ネット", ""], ["トラップツール", ""] ] },
+        { group: "採取・鉱石など", monster: "釣り", mats: [
+            ["キレアジ", ""], ["ドスキレアジ", ""], ["サシミウオ", ""], ["ドスサシミウオ", ""],
+            ["グラスパレクス", ""], ["ドスグラスパレクス", ""], ["ピンクパレクス", ""], ["ドスピンクパレクス", ""],
+            ["アオホウガン", ""], ["ドスアオホウガン", ""], ["ハレツアロワナ", ""], ["ドスハレツアロワナ", ""],
+            ["バクレツアロワナ", ""], ["ドスバクレツアロワナ", ""], ["黄金魚", ""], ["ドス黄金魚", ""],
+            ["小金魚", ""], ["ドス小金魚", ""], ["白金魚", ""], ["ドス白金魚", ""], ["大食いマグロ", ""],
+            ["ドス大食いマグロ", ""], ["ダイオウカジキ", ""], ["ドスダイオウカジキ", ""],
+            ["アンドンウオ", ""], ["ヨゾラノウオ", ""], ["忍耐の種", ""] ] }
+    ];
+
+    const TIER_NUM = { 1: "Ⅰ", 2: "Ⅱ", 3: "Ⅲ", 4: "Ⅳ", 5: "Ⅴ", 6: "Ⅵ" };
+    const THEME_KEY = "mho_mat_theme";
+    const MEMO_KEY  = "mho_mat_memo";
+    const CUSTOM_KEY = "mho_mat_custom";
+
+    let memo = [];       // [{ monster, material, rarity, qty, done }]
+    let customData = []; // [{ group, monster, mats: [[name, tiers]] }]
+
+    // ---------- 初期化 ----------
+    window.addEventListener("DOMContentLoaded", () => {
+        loadCustomData();
+        restoreTheme();
+        buildTierCheckboxes();
+        buildMonsterSelect();
+        renderTierCheckboxes();
+        loadMemo();
+        bindEvents();
+        render();
+    });
+
+    // ---------- 便利 ----------
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function showToast(msg) {
+        const t = document.getElementById("toast-message");
+        t.textContent = msg;
+        t.classList.remove("opacity-0");
+        setTimeout(() => t.classList.add("opacity-0"), 1800);
+    }
+    function allData() { return MATERIAL_DATA.concat(customData); }
+    function tierLabel(tiers) { return tiers ? tiers.split("").map(n => TIER_NUM[n]).join("・") : ""; }
+
+    // ---------- テーマ ----------
+    function changeTheme(cls) {
+        document.getElementById("app-body").className = `${cls} min-h-screen pb-12 font-sans transition-colors duration-300`;
+        try { localStorage.setItem(THEME_KEY, cls); } catch (e) {}
+    }
+    function restoreTheme() {
+        try { const s = localStorage.getItem(THEME_KEY); if (s) { changeTheme(s); document.getElementById("theme-select").value = s; } } catch (e) {}
+    }
+
+    // ---------- プルダウン生成 ----------
+    function buildMonsterSelect() {
+        const sel = document.getElementById("monster-select");
+        const groups = {};
+        allData().forEach(g => { (groups[g.group] = groups[g.group] || []).push(g.monster); });
+        let html = "";
+        Object.keys(groups).forEach(grp => {
+            html += `<optgroup label="${esc(grp)}">`;
+            groups[grp].forEach(m => { html += `<option value="${esc(m)}">${esc(m)}</option>`; });
+            html += `</optgroup>`;
+        });
+        sel.innerHTML = html;
+        // datalist（素材管理用）
+        const dl = document.getElementById("monster-datalist");
+        dl.innerHTML = allData().map(g => `<option value="${esc(g.monster)}"></option>`).join("");
+        onMonsterChange();
+    }
+    function findGroup(monster) { return allData().find(g => g.monster === monster); }
+
+    function onMonsterChange() {
+        const monster = document.getElementById("monster-select").value;
+        const g = findGroup(monster);
+        const matSel = document.getElementById("material-select");
+        if (!g) { matSel.innerHTML = ""; onMaterialChange(); return; }
+        matSel.innerHTML = g.mats.map((m, i) => `<option value="${i}">${esc(m[0])}</option>`).join("");
+        onMaterialChange();
+    }
+
+    function onMaterialChange() {
+        const monster = document.getElementById("monster-select").value;
+        const g = findGroup(monster);
+        const idx = document.getElementById("material-select").value;
+        const rarSel = document.getElementById("rarity-select");
+        if (!g || idx === "") { rarSel.innerHTML = `<option value="">なし</option>`; return; }
+        const tiers = (g.mats[idx] && g.mats[idx][1]) || "";
+        if (!tiers) {
+            rarSel.innerHTML = `<option value="">なし</option>`;
+            rarSel.disabled = true;
+        } else {
+            rarSel.disabled = false;
+            rarSel.innerHTML = tiers.split("").map(n => `<option value="${n}">${TIER_NUM[n]}</option>`).join("");
+        }
+    }
+
+    // ---------- レア度チェックボックス（素材管理モーダル） ----------
+    function buildTierCheckboxes() {
+        const wrap = document.getElementById("cm-tiers");
+        let html = "";
+        for (let n = 1; n <= 6; n++) {
+            html += `<label class="flex items-center gap-1 bg-black/20 px-2 py-1 rounded border border-white/10 cursor-pointer">
+                        <input type="checkbox" class="cm-tier" value="${n}"> ${TIER_NUM[n]}</label>`;
+        }
+        html += `<label class="flex items-center gap-1 bg-black/20 px-2 py-1 rounded border border-white/10 cursor-pointer">
+                    <input type="checkbox" id="cm-none" value="none"> なし</label>`;
+        wrap.innerHTML = html;
+    }
+    function renderTierCheckboxes() { /* 静的でOK */ }
+
+    // ---------- 追加 ----------
+    function addEntry() {
+        const monster = document.getElementById("monster-select").value;
+        const g = findGroup(monster);
+        const idx = document.getElementById("material-select").value;
+        if (!g || idx === "") { showToast("素材を選択してください"); return; }
+        const material = g.mats[idx][0];
+        const rarSel = document.getElementById("rarity-select");
+        const rarity = rarSel.disabled ? "" : rarSel.value;
+        const qty = Math.max(1, parseInt(document.getElementById("qty-input").value || "1", 10));
+        // 同じモンスター・素材・レア度が既にあれば数量を加算
+        const exist = memo.find(m => m.monster === monster && m.material === material && m.rarity === rarity);
+        if (exist) { exist.qty += qty; }
+        else { memo.push({ monster, material, rarity, qty, done: false }); }
+        document.getElementById("qty-input").value = 1;
+        saveMemo();
+        render();
+        showToast(`${material}${rarity ? " " + TIER_NUM[rarity] : ""} を追加`);
+    }
+
+    function changeQty(i, v) {
+        memo[i].qty = Math.max(1, parseInt(v || "1", 10));
+        saveMemo(); render();
+    }
+    function toggleDone(i) { memo[i].done = !memo[i].done; saveMemo(); render(); }
+    function removeEntry(i) { memo.splice(i, 1); saveMemo(); render(); }
+    function resetAll() {
+        if (!memo.length || confirm("メモを全て削除しますか？")) { memo = []; saveMemo(); render(); showToast("全リセットしました"); }
+    }
+
+    // ---------- 描画 ----------
+    function render() {
+        // サマリー
+        const totalQty = memo.reduce((s, m) => s + m.qty, 0);
+        const kinds = new Set(memo.map(m => m.material + "|" + m.rarity));
+        document.getElementById("stat-rows").textContent = memo.length;
+        document.getElementById("stat-qty").textContent = totalQty;
+        document.getElementById("stat-kinds").textContent = kinds.size;
+
+        // 素材まとめ
+        const agg = {};
+        memo.forEach(m => {
+            const k = m.material + "|" + m.rarity;
+            if (!agg[k]) agg[k] = { material: m.material, rarity: m.rarity, qty: 0, done: true };
+            agg[k].qty += m.qty;
+            if (!m.done) agg[k].done = false;
+        });
+        const list = Object.values(agg).sort((a, b) => a.material.localeCompare(b.material, "ja"));
+        const sl = document.getElementById("summary-list");
+        document.getElementById("summary-hint").textContent = list.length ? `${list.length} 種類` : "";
+        sl.innerHTML = list.length ? list.map(a => `
+            <span class="inline-flex items-center gap-1.5 text-xs bg-black/20 border border-white/10 rounded-lg px-2.5 py-1.5 ${a.done ? "opacity-50" : ""}">
+                <span class="font-semibold ${a.done ? "line-through" : "text-cyan-200"}">${esc(a.material)}</span>
+                ${a.rarity ? `<span class="text-amber-400 font-bold">${TIER_NUM[a.rarity]}</span>` : ""}
+                <span class="bg-cyan-600/30 text-cyan-100 rounded px-1.5 font-bold">×${a.qty}</span>
+            </span>`).join("")
+            : `<span class="text-xs opacity-50">まだありません</span>`;
+
+        // メモ一覧
+        const ml = document.getElementById("memo-list");
+        const empty = document.getElementById("memo-empty");
+        if (!memo.length) { ml.innerHTML = ""; empty.style.display = "block"; return; }
+        empty.style.display = "none";
+        ml.innerHTML = memo.map((m, i) => `
+            <div class="flex items-center gap-2 bg-black/20 border border-white/10 rounded-lg px-2.5 py-1.5 ${m.done ? "row-done" : ""}">
+                <input type="checkbox" ${m.done ? "checked" : ""} onchange="toggleDone(${i})" class="w-4 h-4 accent-emerald-500 cursor-pointer shrink-0">
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm font-semibold truncate">${esc(m.material)}${m.rarity ? ` <span class="text-amber-400">${TIER_NUM[m.rarity]}</span>` : ""}</div>
+                    <div class="text-[10px] opacity-60 truncate">${esc(m.monster)}</div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="changeQty(${i}, ${m.qty - 1})" class="w-6 h-6 rounded bg-white/10 hover:bg-white/20 text-xs">−</button>
+                    <input type="number" min="1" value="${m.qty}" onchange="changeQty(${i}, this.value)" class="field-input w-14 rounded text-sm p-1 border text-center">
+                    <button onclick="changeQty(${i}, ${m.qty + 1})" class="w-6 h-6 rounded bg-white/10 hover:bg-white/20 text-xs">＋</button>
+                </div>
+                <button onclick="removeEntry(${i})" class="w-7 h-7 rounded bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 transition shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>
+            </div>`).join("");
+    }
+
+    // ---------- 保存 ----------
+    function saveMemo() { try { localStorage.setItem(MEMO_KEY, JSON.stringify(memo)); } catch (e) {} }
+    function loadMemo() {
+        try { memo = JSON.parse(localStorage.getItem(MEMO_KEY) || "[]"); } catch (e) { memo = []; }
+        if (!Array.isArray(memo)) memo = [];
+    }
+
+    // ---------- カスタム素材 ----------
+    function loadCustomData() {
+        try { const p = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"); customData = Array.isArray(p) ? p : []; } catch (e) { customData = []; }
+    }
+    function saveCustomData() { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(customData)); } catch (e) {} }
+
+    function openManageModal() {
+        document.getElementById("manage-modal").classList.remove("hidden");
+        renderCustomList();
+    }
+    function closeManageModal() { document.getElementById("manage-modal").classList.add("hidden"); }
+
+    function addCustomMaterial() {
+        const monster = document.getElementById("cm-monster").value.trim();
+        const material = document.getElementById("cm-material").value.trim();
+        if (!monster || !material) { showToast("モンスター名と素材名を入力してください"); return; }
+        let tiers = [...document.querySelectorAll(".cm-tier:checked")].map(c => c.value).sort().join("");
+        if (document.getElementById("cm-none").checked) tiers = "";
+        // 既存グループに追記 or 新規グループ
+        let g = customData.find(x => x.monster === monster);
+        if (!g) {
+            const base = MATERIAL_DATA.find(x => x.monster === monster);
+            g = { group: base ? base.group : "カスタム素材", monster, mats: [] };
+            customData.push(g);
+        }
+        if (g.mats.some(m => m[0] === material)) { showToast("同じ素材が既にあります"); return; }
+        g.mats.push([material, tiers]);
+        saveCustomData();
+        document.getElementById("cm-material").value = "";
+        document.querySelectorAll(".cm-tier, #cm-none").forEach(c => c.checked = false);
+        buildMonsterSelect();
+        renderCustomList();
+        showToast("カスタム素材を追加しました");
+    }
+    function deleteCustomMaterial(gi, mi) {
+        customData[gi].mats.splice(mi, 1);
+        if (!customData[gi].mats.length) customData.splice(gi, 1);
+        saveCustomData();
+        buildMonsterSelect();
+        renderCustomList();
+    }
+    function renderCustomList() {
+        const el = document.getElementById("custom-list");
+        if (!customData.length) { el.innerHTML = `<div class="opacity-50">まだありません</div>`; return; }
+        el.innerHTML = customData.map((g, gi) => `
+            <div class="bg-black/20 border border-white/10 rounded-lg p-2">
+                <div class="font-semibold text-cyan-300 mb-1">${esc(g.group)} / ${esc(g.monster)}</div>
+                <div class="flex flex-wrap gap-1">
+                    ${g.mats.map((m, mi) => `
+                        <span class="inline-flex items-center gap-1 bg-black/30 rounded px-1.5 py-0.5">
+                            ${esc(m[0])}${m[1] ? ` <span class="text-amber-400">${esc(tierLabel(m[1]))}</span>` : ""}
+                            <button onclick="deleteCustomMaterial(${gi}, ${mi})" class="text-red-400 hover:text-red-300">×</button>
+                        </span>`).join("")}
+                </div>
+            </div>`).join("");
+    }
+
+    // ---------- バックアップ ----------
+    function exportData() {
+        document.getElementById("backup-json").value = JSON.stringify({ memo, customData });
+        showToast("エクスポートしました（コピーして保存）");
+    }
+    function importData() {
+        try {
+            const p = JSON.parse(document.getElementById("backup-json").value);
+            if (Array.isArray(p.memo)) memo = p.memo;
+            if (Array.isArray(p.customData)) { customData = p.customData; saveCustomData(); buildMonsterSelect(); }
+            saveMemo(); render(); showToast("インポートしました");
+        } catch (e) { showToast("JSON の形式が正しくありません"); }
+    }
+
+    // ---------- イベント ----------
+    function bindEvents() {
+        document.getElementById("reset-all-btn").addEventListener("click", resetAll);
+        document.getElementById("manage-btn").addEventListener("click", openManageModal);
+        document.getElementById("qty-input").addEventListener("keydown", e => { if (e.key === "Enter") addEntry(); });
+    }
+    </script>
+</body>
+</html>
