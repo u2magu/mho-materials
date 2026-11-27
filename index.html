@@ -89,6 +89,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                 <div class="sm:col-span-4">
                     <label class="text-[10px] opacity-70 block mb-0.5">モンスター</label>
+                    <input id="monster-filter" type="text" placeholder="絞り込み（例: カガチ）" autocomplete="off" oninput="renderMonsterOptions(this.value)" class="field-input w-full rounded-lg text-xs p-1.5 border mb-1">
                     <select id="monster-select" onchange="onMonsterChange()" class="w-full rounded-lg text-sm p-2 border appearance-none cursor-pointer"></select>
                 </div>
                 <div class="sm:col-span-4">
@@ -484,21 +485,56 @@
     }
 
     // ---------- プルダウン生成 ----------
-    function buildMonsterSelect() {
+    let monsterGroups = {}; // グループ名 → [モンスター名]
+
+    // ひらがな→カタカナ・英字は小文字にして比較用に正規化
+    function normalizeName(s) {
+        return String(s || "")
+            .replace(/[ぁ-ん]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
+            .toLowerCase();
+    }
+    function monsterOption(m) { return `<option value="${esc(m)}">${esc(m)}</option>`; }
+
+    // filter が空なら通常表示、入力があれば「カガチ」のような部分一致を先頭の「一致」に集約
+    function renderMonsterOptions(filter) {
         const sel = document.getElementById("monster-select");
+        const keep = sel.value;
+        const q = normalizeName(filter).trim();
+        let html = "";
+        if (q) {
+            const matches = [];
+            const rest = {};
+            Object.keys(monsterGroups).forEach(grp => {
+                monsterGroups[grp].forEach(m => {
+                    if (normalizeName(m).includes(q)) matches.push(m);
+                    else (rest[grp] = rest[grp] || []).push(m);
+                });
+            });
+            if (matches.length) {
+                html += `<optgroup label="一致（${matches.length}件）">` + matches.map(monsterOption).join("") + `</optgroup>`;
+            }
+            Object.keys(rest).forEach(grp => {
+                html += `<optgroup label="${esc(grp)}">` + rest[grp].map(monsterOption).join("") + `</optgroup>`;
+            });
+        } else {
+            Object.keys(monsterGroups).forEach(grp => {
+                html += `<optgroup label="${esc(grp)}">` + monsterGroups[grp].map(monsterOption).join("") + `</optgroup>`;
+            });
+        }
+        sel.innerHTML = html;
+        // 選択を保持（一致で並び替えても同じモンスターを選んだまま）
+        if (Array.from(sel.options).some(o => o.value === keep)) sel.value = keep;
+        onMonsterChange();
+    }
+
+    function buildMonsterSelect() {
         const groups = {};
         allData().forEach(g => { (groups[g.group] = groups[g.group] || []).push(g.monster); });
-        let html = "";
-        Object.keys(groups).forEach(grp => {
-            html += `<optgroup label="${esc(grp)}">`;
-            groups[grp].forEach(m => { html += `<option value="${esc(m)}">${esc(m)}</option>`; });
-            html += `</optgroup>`;
-        });
-        sel.innerHTML = html;
+        monsterGroups = groups;
+        renderMonsterOptions(document.getElementById("monster-filter").value);
         // datalist（素材管理用）
         const dl = document.getElementById("monster-datalist");
         dl.innerHTML = allData().map(g => `<option value="${esc(g.monster)}"></option>`).join("");
-        onMonsterChange();
     }
     function findGroup(monster) { return allData().find(g => g.monster === monster); }
 
