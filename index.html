@@ -501,8 +501,8 @@
         const keep = sel.value;
         const q = normalizeName(filter).trim();
         let html = "";
+        let matches = [];
         if (q) {
-            const matches = [];
             const rest = {};
             Object.keys(monsterGroups).forEach(grp => {
                 monsterGroups[grp].forEach(m => {
@@ -522,8 +522,9 @@
             });
         }
         sel.innerHTML = html;
-        // 選択を保持（一致で並び替えても同じモンスターを選んだまま）
-        if (Array.from(sel.options).some(o => o.value === keep)) sel.value = keep;
+        // 入力中は先頭の一致を自動選択（＝プルダウン表示が切り替わり、反映が分かる）
+        if (q && matches.length) sel.value = matches[0];
+        else if (Array.from(sel.options).some(o => o.value === keep)) sel.value = keep;
         onMonsterChange();
     }
 
