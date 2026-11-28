@@ -152,7 +152,7 @@
         <!-- 場所ごとの依頼一覧 -->
         <section id="groups" class="space-y-4 mb-5"></section>
         <div id="memo-empty" class="text-center text-xs opacity-50 py-10">
-            まだ依頼がありません。上で「場所」と「ターゲット」を入れて追加してください。
+            まだ依頼がありません。上で「場所」「ターゲット」「メモ」のどれか1つを入れて追加してください。
         </div>
 
         <p class="text-[10px] opacity-50 text-center leading-relaxed">
@@ -340,9 +340,9 @@
         const place = document.getElementById("place-input").value.trim();
         const target = document.getElementById("target-input").value.trim();
         const note = document.getElementById("note-input").value.trim();
-        if (!place) { showToast("場所を入力してください"); return; }
-        if (!target) { showToast("ターゲットを入力してください"); return; }
-        // 同じ場所・ターゲット・メモが既にあれば追加しない
+        // どれか1つでも埋まっていれば追加できる
+        if (!place && !target && !note) { showToast("場所・ターゲット・メモのいずれかを入力してください"); return; }
+        // 同じ組み合わせが既にあれば追加しない
         if (memo.some(m => m.place === place && m.target === target && m.note === note)) {
             showToast("同じ依頼が既にあります");
             document.getElementById("target-input").value = "";
@@ -355,7 +355,7 @@
         saveMemo();
         render();
         renderQuickPicks();
-        showToast(`「${place}」に ${target} を追加`);
+        showToast(`「${place || target || note}」の依頼を追加`);
         document.getElementById("target-input").focus();
     }
 
@@ -411,11 +411,12 @@
             wrap.innerHTML = order.map((place, gi) => {
                 const items = groups[place];
                 const remain = items.filter(m => !m.done).length;
+                const label = place || "（場所未定）";
                 return `
                 <div class="card rounded-xl border shadow-lg overflow-hidden">
                     <div class="flex items-center gap-2 px-3 py-2 bg-black/20 border-b border-white/10">
                         <i class="fa-solid fa-location-dot text-cyan-400"></i>
-                        <span class="font-bold truncate">${esc(place)}</span>
+                        <span class="font-bold truncate">${esc(label)}</span>
                         <span class="text-[11px] ${remain ? "bg-amber-600/30 text-amber-100" : "bg-emerald-600/30 text-emerald-100"} rounded px-1.5 py-0.5 font-bold whitespace-nowrap">
                             ${remain ? "残り " + remain : "完了"}
                         </span>
@@ -429,7 +430,7 @@
                             <div class="flex items-center gap-2.5 px-3 py-2 ${m.done ? "row-done" : ""}">
                                 <input type="checkbox" ${m.done ? "checked" : ""} onchange="toggleDone(${m._i})" class="w-5 h-5 accent-emerald-500 cursor-pointer shrink-0">
                                 <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-semibold truncate">${esc(m.target)}</div>
+                                    <div class="text-sm font-semibold truncate">${esc(m.target || "（ターゲット未設定）")}</div>
                                     ${m.note ? `<div class="text-[10px] opacity-60 truncate"><i class="fa-solid fa-note-sticky"></i> ${esc(m.note)}</div>` : ""}
                                 </div>
                                 <button onclick="removeEntry(${m._i})" class="w-8 h-8 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 transition shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>
@@ -442,7 +443,7 @@
         // サマリー
         const remain = memo.filter(m => !m.done).length;
         const done = memo.length - remain;
-        const places = new Set(memo.filter(m => !m.done).map(m => m.place)).size;
+        const places = new Set(memo.filter(m => !m.done && m.place).map(m => m.place)).size;
         document.getElementById("stat-remain").textContent = remain;
         document.getElementById("stat-places").textContent = places;
         document.getElementById("stat-done").textContent = done;
@@ -464,9 +465,9 @@
             const items = groups[place];
             const remain = items.filter(m => !m.done).length;
             lines.push("");
-            lines.push(`▼ ${place}${remain ? `（残り ${remain}）` : "（完了）"}`);
+            lines.push(`▼ ${place || "（場所未定）"}${remain ? `（残り ${remain}）` : "（完了）"}`);
             items.forEach(m => {
-                lines.push(`${m.done ? "☑" : "□"} ${m.target}${m.note ? " - " + m.note : ""}`);
+                lines.push(`${m.done ? "☑" : "□"} ${m.target || "（ターゲット未設定）"}${m.note ? " - " + m.note : ""}`);
             });
         });
         return lines.join("\n");
