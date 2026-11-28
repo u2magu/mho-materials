@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHO 依頼メモ - モンハンアウトランダーズ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        select {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+        body.theme-dark { background-color: #0f172a; color: #f8fafc; }
+        .theme-dark .card { background-color: #1e293b; border-color: #334155; }
+        .theme-dark select, .theme-dark .field-input { background-color: #0f172a; color: #f8fafc; border-color: #334155; }
+
+        body.theme-light { background-color: #f1f5f9; color: #0f172a; }
+        .theme-light .card { background-color: #ffffff; border-color: #e2e8f0; }
+        .theme-light select, .theme-light .field-input { background-color: #ffffff; color: #0f172a; border-color: #cbd5e1; }
+
+        body.theme-mint { background-color: #e6f4f1; color: #134e4a; }
+        .theme-mint .card { background-color: #ffffff; border-color: #99f6e4; }
+        .theme-mint select, .theme-mint .field-input { background-color: #f0fdfa; color: #134e4a; border-color: #2dd4bf; }
+
+        .row-done { opacity: .45; text-decoration: line-through; }
+
+        /* スマホ向け調整：入力時に拡大されないよう16px、タップ領域を確保 */
+        @media (max-width: 640px) {
+            select, input.field-input, .field-input { font-size: 16px; }
+            button { touch-action: manipulation; }
+        }
+        #qrcode img, #qrcode canvas, #qrcode svg { display: block; margin: 0 auto; }
+    </style>
+</head>
+<body id="app-body" class="theme-dark min-h-screen pb-12 font-sans transition-colors duration-300">
+
+    <header class="card border-b sticky top-0 z-50 shadow-md">
+        <div class="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 flex flex-wrap justify-between items-center gap-2">
+            <h1 class="text-base sm:text-lg md:text-xl font-bold text-amber-400 flex items-center gap-2">
+                <i class="fa-solid fa-scroll"></i> MHO 依頼メモ
+            </h1>
+            <div class="flex items-center gap-2 text-sm">
+                <a href="index.html" title="素材メモに切り替え" class="text-xs bg-cyan-700/40 hover:bg-cyan-600/60 border border-cyan-500/40 px-2.5 py-2 rounded transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-clipboard-list"></i> <span class="hidden sm:inline">素材メモ</span>
+                </a>
+                <button id="copy-btn" title="依頼一覧をテキストでコピー" class="text-xs bg-emerald-700/40 hover:bg-emerald-600/60 border border-emerald-500/40 px-2.5 py-2 rounded transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-copy"></i> <span class="hidden sm:inline">コピー</span>
+                </button>
+                <button id="settings-btn" onclick="openSettingsModal()" title="バックアップ・設定・QR" class="text-xs bg-slate-700/40 hover:bg-slate-600/60 border border-slate-500/40 px-2.5 py-2 rounded transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-gear"></i> <span class="hidden sm:inline">設定</span>
+                </button>
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-palette text-amber-400"></i>
+                    <select id="theme-select" onchange="changeTheme(this.value)" class="text-xs p-1.5 rounded-lg border cursor-pointer">
+                        <option value="theme-dark">ダーク</option>
+                        <option value="theme-light">ライト</option>
+                        <option value="theme-mint">ミント</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-3 sm:px-4 mt-4">
+
+        <!-- 件数サマリー -->
+        <section class="card rounded-xl p-3 border shadow-lg mb-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-list-check text-amber-400"></i> 残り <b id="stat-remain" class="text-amber-400 text-lg">0</b> 件</span>
+            <span class="flex items-center gap-1.5 opacity-80"><i class="fa-solid fa-location-dot text-cyan-400"></i> 場所 <b id="stat-places">0</b></span>
+            <span class="flex items-center gap-1.5 opacity-80"><i class="fa-solid fa-check text-emerald-400"></i> 完了 <b id="stat-done">0</b></span>
+            <button id="clear-done-btn" class="ml-auto text-[11px] bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                <i class="fa-solid fa-broom"></i> 完了分を削除
+            </button>
+        </section>
+
+        <!-- 入力 -->
+        <section class="card rounded-xl p-3 md:p-4 border shadow-lg mb-5">
+            <div class="text-xs opacity-70 mb-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-plus text-amber-400"></i> 受けた依頼を追加（場所 → ターゲット）
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                <div class="sm:col-span-4">
+                    <label class="text-[10px] opacity-70 block mb-0.5">場所（マップ・エリア）</label>
+                    <input id="place-input" list="place-datalist" type="text" placeholder="例: アステラ / 森丘" autocomplete="off"
+                           class="field-input w-full rounded-lg text-sm p-2 border">
+                    <datalist id="place-datalist"></datalist>
+                </div>
+                <div class="sm:col-span-4">
+                    <label class="text-[10px] opacity-70 block mb-0.5">ターゲット（モンスター・自由入力OK）</label>
+                    <input id="target-input" list="target-datalist" type="text" placeholder="例: リオレウス / トビカガチ" autocomplete="off"
+                           class="field-input w-full rounded-lg text-sm p-2 border">
+                    <datalist id="target-datalist"></datalist>
+                </div>
+                <div class="sm:col-span-4">
+                    <label class="text-[10px] opacity-70 block mb-0.5">メモ（任意）</label>
+                    <input id="note-input" type="text" placeholder="例: 2体討伐 / 捕獲" autocomplete="off"
+                           class="field-input w-full rounded-lg text-sm p-2 border">
+                </div>
+                <div class="sm:col-span-12">
+                    <button onclick="addEntry()" class="w-full bg-amber-700/40 hover:bg-amber-600/60 border border-amber-500/40 font-semibold py-2.5 rounded-lg transition text-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus"></i> 依頼を追加
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 絞り込み -->
+        <div class="flex items-center gap-2 mb-3">
+            <i class="fa-solid fa-magnifying-glass opacity-60 text-xs"></i>
+            <input id="filter-input" type="text" placeholder="場所・ターゲットで絞り込み" autocomplete="off"
+                   class="field-input flex-1 rounded-lg text-sm p-2 border">
+            <label class="text-xs opacity-70 flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+                <input id="hide-done" type="checkbox" class="w-4 h-4 accent-emerald-500"> 完了を隠す
+            </label>
+        </div>
+
+        <!-- 場所ごとの依頼一覧 -->
+        <section id="groups" class="space-y-4 mb-5"></section>
+        <div id="memo-empty" class="text-center text-xs opacity-50 py-10">
+            まだ依頼がありません。上で「場所」と「ターゲット」を入れて追加してください。
+        </div>
+
+        <p class="text-[10px] opacity-50 text-center leading-relaxed">
+            非公式ファンメイドツールです。入力内容はこの端末のブラウザ（localStorage）に保存され、外部に送信されません。<br>
+            モンスター名の候補は「MHO 素材メモ」と同じ一覧を流用しています。
+        </p>
+
+    </main>
+
+    <!-- 設定モーダル（バックアップ・QR） -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onclick="if(event.target===this)closeSettingsModal()">
+        <div class="card rounded-xl border shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-white/10">
+                <h2 class="font-bold text-amber-400 flex items-center gap-2"><i class="fa-solid fa-gear"></i> バックアップ・設定</h2>
+                <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 space-y-4 overflow-y-auto">
+                <p class="text-xs opacity-70 leading-relaxed">依頼メモを JSON で書き出し／読み込みします。別の端末への移行やバックアップに使えます。</p>
+                <textarea id="backup-json" class="field-input w-full rounded-lg text-xs p-2 border h-32 font-mono" placeholder="エクスポートで JSON 出力 / 貼り付けてインポート"></textarea>
+                <div class="flex gap-2">
+                    <button onclick="exportData()" class="flex-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 py-2 rounded text-xs transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-download"></i> エクスポート
+                    </button>
+                    <button onclick="importData()" class="flex-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 py-2 rounded text-xs transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-upload"></i> インポート
+                    </button>
+                </div>
+
+                <div class="border-t border-white/10 pt-4">
+                    <div class="text-xs opacity-70 mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-qrcode text-amber-400"></i> スマホに送る（QRコード）
+                    </div>
+                    <p class="text-[10px] opacity-60 leading-relaxed mb-2">スマホのカメラで読み取って開けます。「今のメモを送る」は、この端末の依頼メモをそのままスマホ側に引き継ぎます。</p>
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="showQrUrl()" class="flex-1 bg-amber-700/40 hover:bg-amber-600/60 border border-amber-500/40 py-2 rounded text-xs transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-link"></i> このページのURL
+                        </button>
+                        <button onclick="showQrData()" class="flex-1 bg-violet-600/20 hover:bg-violet-600/40 text-violet-200 border border-violet-500/30 py-2 rounded text-xs transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-mobile-screen-button"></i> 今のメモを送る
+                        </button>
+                    </div>
+                    <div id="qr-area" class="hidden text-center">
+                        <div id="qrcode" class="inline-block bg-white p-3 rounded-lg"></div>
+                        <p id="qr-note" class="text-[10px] opacity-60 mt-2 leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-message" class="fixed bottom-5 right-5 bg-amber-600 text-white px-4 py-2 rounded-lg shadow-xl text-xs font-semibold opacity-0 transition-opacity duration-300 pointer-events-none z-[70]"></div>
+
+    <script>
+    // ============================================================
+    // ▼ モンスター名の候補（MHO 素材メモの一覧を流用）
+    //    group : 候補の見出し（datalist は見出しを持てないため data-label に保持）
+    //    名前は自由入力も可能。ここはあくまで入力補助。
+    // ============================================================
+    const MONSTER_GROUPS = [
+        { group: "大型モンスター", names: [
+            "アンジャナフ", "ボルボロス", "ディアブロス", "ディアブロス亜種", "ドスジャグラス",
+            "ジュラトドス", "ドスギルオス", "クルルヤック", "レイギエナ", "オドガロン",
+            "パオウルムー", "リオレイア亜種", "プケプケ", "ラドバルキン", "リオレウス",
+            "リオレイア", "トビカガチ", "ツィツィヤック", "ネルギガンテ", "クシャルダオラ",
+            "ルガ・エアルダ" ] },
+        { group: "融光種モンスター", names: [
+            "融光種アンジャナフ", "融光種ボルボロス", "融光種ディアブロス", "融光種ディアブロス亜種",
+            "融光種ドスジャグラス", "融光種ジュラトドス", "融光種ドスギルオス", "融光種クルルヤック",
+            "融光種レイギエナ", "融光種オドガロン", "融光種パオウルムー", "融光種リオレイア亜種",
+            "融光種プケプケ", "融光種ラドバルキン", "融光種リオレウス", "融光種リオレイア",
+            "融光種トビカガチ", "融光種ツィツィヤック" ] },
+        { group: "小型モンスター", names: [
+            "ジャグラス", "ケストドン", "カンタロス", "ランゴスタ", "ギルオス", "ガライーバ",
+            "ガストドン", "シャムオス", "メルノス", "融光種ジャグラス", "融光種ケストドン",
+            "融光種ランゴスタ", "融光種ガライーバ", "融光種ガストドン", "融光種シャムオス", "融光種メルノス" ] }
+    ];
+
+    const THEME_KEY = "mho_req_theme";
+    const MEMO_KEY  = "mho_req_memo";
+
+    let memo = []; // [{ place, target, note, done }]
+
+    // ---------- 初期化 ----------
+    window.addEventListener("DOMContentLoaded", () => {
+        restoreTheme();
+        buildTargetDatalist();
+        const imported = loadFromHash();
+        if (!imported) loadMemo();
+        bindEvents();
+        render();
+        if (imported) showToast("QRコードから読み込みました");
+    });
+
+    // ---------- 便利 ----------
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function showToast(msg) {
+        const t = document.getElementById("toast-message");
+        t.textContent = msg;
+        t.classList.remove("opacity-0");
+        setTimeout(() => t.classList.add("opacity-0"), 1800);
+    }
+
+    // ---------- テーマ ----------
+    function changeTheme(cls) {
+        document.getElementById("app-body").className = `${cls} min-h-screen pb-12 font-sans transition-colors duration-300`;
+        try { localStorage.setItem(THEME_KEY, cls); } catch (e) {}
+    }
+    function restoreTheme() {
+        try { const s = localStorage.getItem(THEME_KEY); if (s) { changeTheme(s); document.getElementById("theme-select").value = s; } } catch (e) {}
+    }
+
+    // ---------- 入力候補 ----------
+    function buildTargetDatalist() {
+        const dl = document.getElementById("target-datalist");
+        const opts = [];
+        MONSTER_GROUPS.forEach(g => g.names.forEach(n => {
+            opts.push(`<option value="${esc(n)}" data-group="${esc(g.group)}"></option>`);
+        }));
+        dl.innerHTML = opts.join("");
+    }
+    // これまで入力した「場所」を候補に（重複なし・新しい順）
+    function refreshPlaceDatalist() {
+        const dl = document.getElementById("place-datalist");
+        const seen = new Set();
+        const places = [];
+        memo.forEach(m => { if (m.place && !seen.has(m.place)) { seen.add(m.place); places.push(m.place); } });
+        dl.innerHTML = places.map(p => `<option value="${esc(p)}"></option>`).join("");
+    }
+
+    // ---------- 追加・操作 ----------
+    function addEntry() {
+        const place = document.getElementById("place-input").value.trim();
+        const target = document.getElementById("target-input").value.trim();
+        const note = document.getElementById("note-input").value.trim();
+        if (!place) { showToast("場所を入力してください"); return; }
+        if (!target) { showToast("ターゲットを入力してください"); return; }
+        // 同じ場所・ターゲット・メモが既にあれば追加しない
+        if (memo.some(m => m.place === place && m.target === target && m.note === note)) {
+            showToast("同じ依頼が既にあります");
+            document.getElementById("target-input").value = "";
+            return;
+        }
+        memo.push({ place, target, note, done: false });
+        // 場所は残して連続入力しやすく、ターゲットとメモはクリア
+        document.getElementById("target-input").value = "";
+        document.getElementById("note-input").value = "";
+        saveMemo();
+        render();
+        showToast(`「${place}」に ${target} を追加`);
+        document.getElementById("target-input").focus();
+    }
+
+    function toggleDone(i) { memo[i].done = !memo[i].done; saveMemo(); render(); }
+    function removeEntry(i) {
+        if (memo[i].done) { memo.splice(i, 1); saveMemo(); render(); return; }
+        if (confirm(`「${memo[i].place} / ${memo[i].target}」を削除しますか？`)) { memo.splice(i, 1); saveMemo(); render(); }
+    }
+    function clearDone() {
+        const n = memo.filter(m => m.done).length;
+        if (!n) { showToast("完了した依頼はありません"); return; }
+        if (confirm(`完了した ${n} 件を削除しますか？`)) { memo = memo.filter(m => !m.done); saveMemo(); render(); showToast(`${n} 件を削除しました`); }
+    }
+    let renderedPlaces = []; // 直近の描画で表示した場所（グループ操作で使用）
+    function setAllDoneAt(gi, done) {
+        const place = renderedPlaces[gi];
+        if (place === undefined) return;
+        memo.forEach(m => { if (m.place === place) m.done = done; });
+        saveMemo(); render();
+    }
+
+    // ---------- 描画 ----------
+    function currentFilter() {
+        return document.getElementById("filter-input").value.trim().toLowerCase();
+    }
+    function render() {
+        refreshPlaceDatalist();
+
+        const q = currentFilter();
+        const hideDone = document.getElementById("hide-done").checked;
+
+        // 表示対象
+        let visible = memo.map((m, i) => ({ ...m, _i: i }));
+        if (q) visible = visible.filter(m => (m.place + " " + m.target + " " + (m.note || "")).toLowerCase().includes(q));
+        if (hideDone) visible = visible.filter(m => !m.done);
+
+        // 場所ごとにグループ化（初出順）
+        const order = [];
+        const groups = {};
+        visible.forEach(m => {
+            if (!groups[m.place]) { groups[m.place] = []; order.push(m.place); }
+            groups[m.place].push(m);
+        });
+
+        const wrap = document.getElementById("groups");
+        const empty = document.getElementById("memo-empty");
+        renderedPlaces = order;
+        if (!order.length) {
+            wrap.innerHTML = "";
+            empty.style.display = "block";
+        } else {
+            empty.style.display = "none";
+            wrap.innerHTML = order.map((place, gi) => {
+                const items = groups[place];
+                const remain = items.filter(m => !m.done).length;
+                return `
+                <div class="card rounded-xl border shadow-lg overflow-hidden">
+                    <div class="flex items-center gap-2 px-3 py-2 bg-black/20 border-b border-white/10">
+                        <i class="fa-solid fa-location-dot text-cyan-400"></i>
+                        <span class="font-bold truncate">${esc(place)}</span>
+                        <span class="text-[11px] ${remain ? "bg-amber-600/30 text-amber-100" : "bg-emerald-600/30 text-emerald-100"} rounded px-1.5 py-0.5 font-bold whitespace-nowrap">
+                            ${remain ? "残り " + remain : "完了"}
+                        </span>
+                        <button onclick="setAllDoneAt(${gi}, true)" title="この場所を全部完了"
+                                class="ml-auto text-[11px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded transition whitespace-nowrap">
+                            <i class="fa-solid fa-check-double"></i> 全部完了
+                        </button>
+                    </div>
+                    <div class="divide-y divide-white/5">
+                        ${items.map(m => `
+                            <div class="flex items-center gap-2.5 px-3 py-2 ${m.done ? "row-done" : ""}">
+                                <input type="checkbox" ${m.done ? "checked" : ""} onchange="toggleDone(${m._i})" class="w-5 h-5 accent-emerald-500 cursor-pointer shrink-0">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-semibold truncate">${esc(m.target)}</div>
+                                    ${m.note ? `<div class="text-[10px] opacity-60 truncate"><i class="fa-solid fa-note-sticky"></i> ${esc(m.note)}</div>` : ""}
+                                </div>
+                                <button onclick="removeEntry(${m._i})" class="w-8 h-8 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 transition shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>
+                            </div>`).join("")}
+                    </div>
+                </div>`;
+            }).join("");
+        }
+
+        // サマリー
+        const remain = memo.filter(m => !m.done).length;
+        const done = memo.length - remain;
+        const places = new Set(memo.filter(m => !m.done).map(m => m.place)).size;
+        document.getElementById("stat-remain").textContent = remain;
+        document.getElementById("stat-places").textContent = places;
+        document.getElementById("stat-done").textContent = done;
+
+        renderCopyHint();
+    }
+
+    // ---------- テキストコピー ----------
+    function buildCopyText() {
+        const order = [];
+        const groups = {};
+        memo.forEach(m => {
+            if (!groups[m.place]) { groups[m.place] = []; order.push(m.place); }
+            groups[m.place].push(m);
+        });
+        if (!order.length) return "";
+        const lines = ["【MHO 依頼メモ】"];
+        order.forEach(place => {
+            const items = groups[place];
+            const remain = items.filter(m => !m.done).length;
+            lines.push("");
+            lines.push(`▼ ${place}${remain ? `（残り ${remain}）` : "（完了）"}`);
+            items.forEach(m => {
+                lines.push(`${m.done ? "☑" : "□"} ${m.target}${m.note ? " - " + m.note : ""}`);
+            });
+        });
+        return lines.join("\n");
+    }
+    function copyText() {
+        const text = buildCopyText();
+        if (!text) { showToast("依頼がありません"); return; }
+        const done = () => showToast("依頼一覧をコピーしました");
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+        } else {
+            fallbackCopy(text, done);
+        }
+    }
+    function fallbackCopy(text, done) {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed"; ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); done(); } catch (e) { showToast("コピーできませんでした"); }
+        document.body.removeChild(ta);
+    }
+    function renderCopyHint() { /* 予備 */ }
+
+    // ---------- 保存 ----------
+    function saveMemo() { try { localStorage.setItem(MEMO_KEY, JSON.stringify(memo)); } catch (e) {} }
+    function loadMemo() {
+        try { memo = JSON.parse(localStorage.getItem(MEMO_KEY) || "[]"); } catch (e) { memo = []; }
+        if (!Array.isArray(memo)) memo = [];
+    }
+
+    // ---------- 設定モーダル ----------
+    function openSettingsModal() { document.getElementById("settings-modal").classList.remove("hidden"); }
+    function closeSettingsModal() { document.getElementById("settings-modal").classList.add("hidden"); }
+
+    // ---------- バックアップ ----------
+    function exportData() {
+        document.getElementById("backup-json").value = JSON.stringify({ memo });
+        showToast("エクスポートしました（コピーして保存）");
+    }
+    function importData() {
+        try {
+            const p = JSON.parse(document.getElementById("backup-json").value);
+            if (Array.isArray(p.memo)) memo = p.memo;
+            saveMemo(); render(); showToast("インポートしました");
+        } catch (e) { showToast("JSON の形式が正しくありません"); }
+    }
+
+    // ---------- QRコード（スマホへ送る） ----------
+    function encodeHash(obj) {
+        const json = JSON.stringify(obj);
+        if (typeof LZString !== "undefined") return LZString.compressToEncodedURIComponent(json);
+        return btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+    function decodeHash(str) {
+        if (typeof LZString !== "undefined") { const s = LZString.decompressFromEncodedURIComponent(str); if (s) return s; }
+        const b = str.replace(/-/g, "+").replace(/_/g, "/");
+        return decodeURIComponent(escape(atob(b)));
+    }
+    function loadFromHash() {
+        const h = location.hash.slice(1);
+        if (!h.startsWith("d=")) return false;
+        try {
+            const p = JSON.parse(decodeHash(h.slice(2)));
+            if (Array.isArray(p.memo)) memo = p.memo;
+            saveMemo();
+            history.replaceState(null, "", location.pathname + location.search);
+            return true;
+        } catch (e) { return false; }
+    }
+    function renderQr(text, note) {
+        const area = document.getElementById("qr-area");
+        const box = document.getElementById("qrcode");
+        area.classList.remove("hidden");
+        box.innerHTML = "";
+        if (typeof QRCode === "undefined") {
+            document.getElementById("qr-note").textContent = "QRコードライブラリの読み込みに失敗しました。通信環境を確認してください。";
+            return;
+        }
+        new QRCode(box, { text, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L });
+        document.getElementById("qr-note").innerHTML = note;
+    }
+    function showQrUrl() {
+        const url = location.origin + location.pathname;
+        renderQr(url, `このURLをスマホのカメラで読み取り → ツールを開けます<br><span class="break-all">${esc(url)}</span>`);
+    }
+    function showQrData() {
+        const part = "#d=" + encodeHash({ memo });
+        const url = location.origin + location.pathname + part;
+        if (url.length > 2400) { showToast("メモが多すぎてQRに収まりません。エクスポートを使ってください"); return; }
+        renderQr(url, `読み取ると、今の<b>依頼 ${memo.length} 件</b>がスマホに読み込まれます`);
+    }
+
+    // ---------- イベント ----------
+    function bindEvents() {
+        document.getElementById("copy-btn").addEventListener("click", copyText);
+        document.getElementById("settings-btn").addEventListener("click", openSettingsModal);
+        document.getElementById("clear-done-btn").addEventListener("click", clearDone);
+        document.getElementById("filter-input").addEventListener("input", render);
+        document.getElementById("hide-done").addEventListener("change", render);
+        document.getElementById("target-input").addEventListener("keydown", e => { if (e.key === "Enter") addEntry(); });
+        document.getElementById("note-input").addEventListener("keydown", e => { if (e.key === "Enter") addEntry(); });
+        document.getElementById("place-input").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("target-input").focus(); });
+    }
+    </script>
+</body>
+</html>
