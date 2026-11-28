@@ -84,22 +84,39 @@
             <div class="text-xs opacity-70 mb-2 flex items-center gap-1.5">
                 <i class="fa-solid fa-plus text-amber-400"></i> 受けた依頼を追加（場所 → ターゲット）
             </div>
+
+            <!-- クイック選択（上） -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                <div class="bg-black/20 rounded-lg border border-white/10 p-2">
+                    <div class="text-[10px] opacity-70 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-location-dot text-cyan-400"></i> 場所（4マップ）</div>
+                    <div id="quick-place" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div class="bg-black/20 rounded-lg border border-white/10 p-2">
+                    <div class="text-[10px] opacity-70 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-dragon text-red-400"></i> ターゲット（種族）</div>
+                    <div id="quick-target" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div class="bg-black/20 rounded-lg border border-white/10 p-2">
+                    <div class="text-[10px] opacity-70 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-note-sticky text-emerald-400"></i> メモ（条件・押すと切替）</div>
+                    <div id="quick-memo" class="flex flex-wrap gap-1.5"></div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                 <div class="sm:col-span-4">
                     <label class="text-[10px] opacity-70 block mb-0.5">場所（マップ・エリア）</label>
-                    <input id="place-input" list="place-datalist" type="text" placeholder="例: アステラ / 森丘" autocomplete="off"
+                    <input id="place-input" list="place-datalist" type="text" placeholder="例: 巨木の原野 / 熱砂の平原" autocomplete="off"
                            class="field-input w-full rounded-lg text-sm p-2 border">
                     <datalist id="place-datalist"></datalist>
                 </div>
                 <div class="sm:col-span-4">
-                    <label class="text-[10px] opacity-70 block mb-0.5">ターゲット（モンスター・自由入力OK）</label>
-                    <input id="target-input" list="target-datalist" type="text" placeholder="例: リオレウス / トビカガチ" autocomplete="off"
+                    <label class="text-[10px] opacity-70 block mb-0.5">ターゲット（種族 or モンスター名・自由入力OK）</label>
+                    <input id="target-input" list="target-datalist" type="text" placeholder="例: 飛竜種 / リオレウス" autocomplete="off"
                            class="field-input w-full rounded-lg text-sm p-2 border">
                     <datalist id="target-datalist"></datalist>
                 </div>
                 <div class="sm:col-span-4">
                     <label class="text-[10px] opacity-70 block mb-0.5">メモ（任意）</label>
-                    <input id="note-input" type="text" placeholder="例: 2体討伐 / 捕獲" autocomplete="off"
+                    <input id="note-input" type="text" placeholder="例: 近接武器・捕獲" autocomplete="off"
                            class="field-input w-full rounded-lg text-sm p-2 border">
                 </div>
                 <div class="sm:col-span-12">
@@ -128,7 +145,7 @@
 
         <p class="text-[10px] opacity-50 text-center leading-relaxed">
             非公式ファンメイドツールです。入力内容はこの端末のブラウザ（localStorage）に保存され、外部に送信されません。<br>
-            モンスター名の候補は「MHO 素材メモ」と同じ一覧を流用しています。
+            クイック選択に主要4マップと依頼の種族（獣竜種〜融光種）を収録。モンスター名の候補は「MHO 素材メモ」と同じ一覧を流用しています。
         </p>
 
     </main>
@@ -204,6 +221,14 @@
     const THEME_KEY = "mho_req_theme";
     const MEMO_KEY  = "mho_req_memo";
 
+    // クイック選択の候補
+    //   場所      : 主要4マップ（出典: ゲーム内/Wiki 2026-11 時点）
+    //   ターゲット: 依頼の「種族欄」に表示される種族（例: 獣竜種・飛竜種 … 融光種）
+    //   メモ      : 依頼の条件（武器種・捕獲/狩猟）。押すと入切できる
+    const MAPS = ["巨木の原野", "熱砂の平原", "朽ち果ての淵", "瑰麗岩礁"];
+    const SPECIES = ["獣竜種", "飛竜種", "鳥竜種", "魚竜種", "牙竜種", "古龍種", "融光種"];
+    const MEMO_WORDS = ["近接武器", "遠距離武器", "捕獲", "狩猟"];
+
     let memo = []; // [{ place, target, note, done }]
 
     // ---------- 初期化 ----------
@@ -213,6 +238,7 @@
         const imported = loadFromHash();
         if (!imported) loadMemo();
         bindEvents();
+        renderQuickPicks();
         render();
         if (imported) showToast("QRコードから読み込みました");
     });
@@ -240,7 +266,7 @@
     // ---------- 入力候補 ----------
     function buildTargetDatalist() {
         const dl = document.getElementById("target-datalist");
-        const opts = [];
+        const opts = SPECIES.map(s => `<option value="${esc(s)}"></option>`);
         MONSTER_GROUPS.forEach(g => g.names.forEach(n => {
             opts.push(`<option value="${esc(n)}" data-group="${esc(g.group)}"></option>`);
         }));
@@ -253,6 +279,42 @@
         const places = [];
         memo.forEach(m => { if (m.place && !seen.has(m.place)) { seen.add(m.place); places.push(m.place); } });
         dl.innerHTML = places.map(p => `<option value="${esc(p)}"></option>`).join("");
+    }
+
+    // ---------- クイック選択 ----------
+    function chipBtn(label, active, onclick) {
+        const cls = active
+            ? "bg-amber-500/80 text-white border-amber-400"
+            : "bg-white/5 hover:bg-white/15 border-white/15";
+        return `<button type="button" onclick="${onclick}" class="text-[11px] px-2 py-1 rounded-lg border transition ${cls}">${esc(label)}</button>`;
+    }
+    function pickPlace(v) {
+        document.getElementById("place-input").value = v;
+        renderQuickPicks();
+    }
+    function pickTarget(v) {
+        document.getElementById("target-input").value = v;
+        renderQuickPicks();
+    }
+    // メモの語を入切（「近接武器・捕獲」のように「・」区切りで保存）
+    function toggleMemo(w) {
+        const el = document.getElementById("note-input");
+        let parts = el.value.split("・").map(s => s.trim()).filter(Boolean);
+        parts = parts.includes(w) ? parts.filter(p => p !== w) : parts.concat(w);
+        el.value = parts.join("・");
+        renderQuickPicks();
+    }
+    function renderQuickPicks() {
+        const place = document.getElementById("place-input").value.trim();
+        const target = document.getElementById("target-input").value.trim();
+        const noteParts = document.getElementById("note-input").value.split("・").map(s => s.trim());
+
+        document.getElementById("quick-place").innerHTML =
+            MAPS.map(v => chipBtn(v, place === v, `pickPlace('${v}')`)).join("");
+        document.getElementById("quick-target").innerHTML =
+            SPECIES.map(v => chipBtn(v, target === v, `pickTarget('${v}')`)).join("");
+        document.getElementById("quick-memo").innerHTML =
+            MEMO_WORDS.map(v => chipBtn(v, noteParts.includes(v), `toggleMemo('${v}')`)).join("");
     }
 
     // ---------- 追加・操作 ----------
@@ -274,6 +336,7 @@
         document.getElementById("note-input").value = "";
         saveMemo();
         render();
+        renderQuickPicks();
         showToast(`「${place}」に ${target} を追加`);
         document.getElementById("target-input").focus();
     }
@@ -487,6 +550,8 @@
         document.getElementById("clear-done-btn").addEventListener("click", clearDone);
         document.getElementById("filter-input").addEventListener("input", render);
         document.getElementById("hide-done").addEventListener("change", render);
+        ["place-input", "target-input", "note-input"].forEach(id =>
+            document.getElementById(id).addEventListener("input", renderQuickPicks));
         document.getElementById("target-input").addEventListener("keydown", e => { if (e.key === "Enter") addEntry(); });
         document.getElementById("note-input").addEventListener("keydown", e => { if (e.key === "Enter") addEntry(); });
         document.getElementById("place-input").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("target-input").focus(); });
